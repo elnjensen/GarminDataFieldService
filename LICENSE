@@ -1,0 +1,44 @@
+MIT License
+
+Copyright (c) 2026 The GarminDataFieldService authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+This project incorporates or derives from the following works:
+
+- Trio (https://github.com/nightscout/Trio), MIT License,
+  Copyright (c) 2021 Ivan Valkou and Trio contributors.
+  The GarminWatchState payload model and parts of the watch-state assembly
+  and ConnectIQ session handling are ported or adapted from Trio's Garmin
+  support (GarminWatchState.swift, GarminManager.swift).
+
+- NightscoutService (https://github.com/LoopKit/NightscoutService),
+  BSD 2-Clause License, Copyright (c) 2019 Tidepool Project.
+  The HKUnit extension is copied from NightscoutServiceKit, and the
+  three-target plugin structure follows its template.
+
+- GarminService by Jan Wrede (https://github.com/janvv/GarminService),
+  BSD 2-Clause License. The service icon (garmin_icon.png) and the original
+  Loop-to-Garmin plugin approach come from this project.
+
+- Garmin Connect IQ Companion App SDK for iOS
+  (https://github.com/garmin/connectiq-companion-app-sdk-ios), used under
+  the Garmin Connect IQ SDK License Agreement.

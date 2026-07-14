@@ -1,0 +1,19 @@
+diff --git a/Loop/Managers/DeeplinkManager.swift b/Loop/Managers/DeeplinkManager.swift
+index 86b17f625..22736ef6a 100644
+--- a/Loop/Managers/DeeplinkManager.swift
++++ b/Loop/Managers/DeeplinkManager.swift
+@@ -33,9 +33,12 @@ class DeeplinkManager {
+     
+     func handle(_ url: URL) -> Bool {
+         guard let rootViewController = rootViewController as? RootNavigationController, let deeplink = Deeplink(url: url) else {
+-            return false
++            // Forward URLs Loop doesn't handle itself to interested plugins
++            // (e.g. the Garmin Connect device-selection response).
++            NotificationCenter.default.post(name: Notification.Name("org.loopkit.Loop.didReceiveURL"), object: url)
++            return true
+         }
+-        
++
+         rootViewController.navigate(to: deeplink)
+         return true
+     }

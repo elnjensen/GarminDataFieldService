@@ -1,0 +1,39 @@
+diff --git a/LoopWorkspace.xcworkspace/contents.xcworkspacedata b/LoopWorkspace.xcworkspace/contents.xcworkspacedata
+index 259c3bc..9465ec0 100644
+--- a/LoopWorkspace.xcworkspace/contents.xcworkspacedata
++++ b/LoopWorkspace.xcworkspace/contents.xcworkspacedata
+@@ -105,6 +105,9 @@
+    <FileRef
+       location = "group:NightscoutService/NightscoutService.xcodeproj">
+    </FileRef>
++   <FileRef
++      location = "group:GarminDataFieldService/GarminDataFieldService.xcodeproj">
++   </FileRef>
+    <FileRef
+       location = "group:TrueTime.swift/TrueTime.xcodeproj">
+    </FileRef>
+diff --git a/LoopWorkspace.xcworkspace/xcshareddata/xcschemes/LoopWorkspace.xcscheme b/LoopWorkspace.xcworkspace/xcshareddata/xcschemes/LoopWorkspace.xcscheme
+index 55d86ac..fb43b82 100644
+--- a/LoopWorkspace.xcworkspace/xcshareddata/xcschemes/LoopWorkspace.xcscheme
++++ b/LoopWorkspace.xcworkspace/xcshareddata/xcschemes/LoopWorkspace.xcscheme
+@@ -132,6 +132,20 @@
+                ReferencedContainer = "container:NightscoutService/NightscoutService.xcodeproj">
+             </BuildableReference>
+          </BuildActionEntry>
++         <BuildActionEntry
++            buildForTesting = "YES"
++            buildForRunning = "YES"
++            buildForProfiling = "YES"
++            buildForArchiving = "YES"
++            buildForAnalyzing = "YES">
++            <BuildableReference
++               BuildableIdentifier = "primary"
++               BlueprintIdentifier = "C14437C42529F1D984A40744"
++               BuildableName = "GarminDataFieldServiceKitPlugin.loopplugin"
++               BlueprintName = "GarminDataFieldServiceKitPlugin"
++               ReferencedContainer = "container:GarminDataFieldService/GarminDataFieldService.xcodeproj">
++            </BuildableReference>
++         </BuildActionEntry>
+          <BuildActionEntry
+             buildForTesting = "YES"
+             buildForRunning = "YES"

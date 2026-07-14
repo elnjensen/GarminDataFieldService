@@ -1,0 +1,12 @@
+diff --git a/Loop/Info.plist b/Loop/Info.plist
+index db76e6e84..0992bbbeb 100644
+--- a/Loop/Info.plist
++++ b/Loop/Info.plist
+@@ -50,6 +50,7 @@
+ 		<string>dexcomg6</string>
+ 		<string>dexcomcgm</string>
+ 		<string>dexcomshare</string>
++		<string>gcm-ciq</string>
+ 	</array>
+ 	<key>LSRequiresIPhoneOS</key>
+ 	<true/>
