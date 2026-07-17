@@ -26,6 +26,9 @@ This project incorporates or derives from the following works:
 
 - Trio (https://github.com/nightscout/Trio), MIT License,
   Copyright (c) 2021 Ivan Valkou and Trio contributors.
+  The companion Loop Graph datafield is a fork of the Trio Datafield
+  (Ivan Valkou / Pierre Lagarde; upstream repository by Robert Günther),
+  MIT License — see the LoopGraphDatafield repository.
   The GarminWatchState payload model and parts of the watch-state assembly
   and ConnectIQ session handling are ported or adapted from Trio's Garmin
   support (GarminWatchState.swift, GarminManager.swift).
