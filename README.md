@@ -34,7 +34,7 @@ The plugin sends a Trio-format JSON message over Bluetooth (via Garmin ConnectIQ
 A LoopWorkspace fork with everything integrated is available (branch `garmin`):
 
 ```bash
-git clone --branch=garmin --recurse-submodules https://github.com/REPLACE_ME/LoopWorkspace
+git clone --branch=garmin --recurse-submodules https://github.com/elnjensen/LoopWorkspace
 cd LoopWorkspace
 xed .   # open in Xcode, set your team, build to your phone
 ```
@@ -51,7 +51,7 @@ workspace/scheme wiring, and the two small Loop patches in
 
    ```bash
    cd LoopWorkspace
-   git clone https://github.com/REPLACE_ME/GarminDataFieldService
+   git clone https://github.com/elnjensen/GarminDataFieldService
    ```
 
 2. Apply the two Loop patches (they add ~5 lines forwarding unhandled URLs as
