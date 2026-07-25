@@ -76,9 +76,20 @@ public protocol GarminDeviceSessionDelegate: AnyObject {
 public final class GarminDeviceSession: NSObject {
 
     /// Posted by the (patched) Loop app when it receives a URL it does not
-    /// handle itself, carrying the URL as the notification object. This is how
-    /// the Garmin Connect Mobile device-selection response reaches the plugin.
+    /// handle itself, carrying the URL in `userInfo` under `urlUserInfoKey`.
+    /// This is how the Garmin Connect Mobile device-selection response reaches
+    /// the plugin.
     public static let didReceiveURLNotification = Notification.Name("org.loopkit.Loop.didReceiveURL")
+
+    /// `userInfo` key carrying the forwarded `URL`.
+    public static let urlUserInfoKey = "url"
+
+    /// The host of the device-selection response URL that Garmin Connect Mobile
+    /// opens (`IQDeviceSelectionResponse.urlHost` in the ConnectIQ SDK).
+    private static let deviceSelectionResponseHost = "device-select-resp"
+
+    /// How long after the user starts a selection we will accept a response.
+    private static let deviceSelectionTimeout: TimeInterval = 5 * 60
 
     public weak var delegate: GarminDeviceSessionDelegate?
 
@@ -98,6 +109,11 @@ public final class GarminDeviceSession: NSObject {
     private var lastSentHash: Int?
     private var lastStates: [GarminWatchState] = []
     private var pendingSend: DispatchWorkItem?
+
+    /// When the user-initiated device selection stops accepting a response. Any
+    /// app on the device can open Loop's URL scheme, so a selection response is
+    /// only honored while the user has one outstanding.
+    private var deviceSelectionDeadline: Date?
 
     private let log = Logger(subsystem: "GarminDataFieldService", category: "GarminDeviceSession")
 
@@ -144,11 +160,27 @@ public final class GarminDeviceSession: NSObject {
     /// Opens Garmin Connect Mobile so the user can pick devices. The response
     /// arrives via `didReceiveURLNotification` from the patched host app.
     public func showDeviceSelection() {
+        deviceSelectionDeadline = Date().addingTimeInterval(Self.deviceSelectionTimeout)
         ConnectIQ.sharedInstance().showDeviceSelection()
     }
 
     @objc private func handleURLNotification(_ notification: Notification) {
-        guard let url = notification.object as? URL else { return }
+        // Tolerate hosts that pass the URL as the notification object rather
+        // than in userInfo.
+        let url = notification.userInfo?[Self.urlUserInfoKey] as? URL ?? notification.object as? URL
+        guard let url else { return }
+
+        guard url.host == Self.deviceSelectionResponseHost else { return }
+
+        // The ConnectIQ SDK only checks a source-bundle string carried in the
+        // URL's own query, which any sender can set, so it cannot tell a real
+        // response from a forged one. Require that the user actually asked.
+        guard let deadline = deviceSelectionDeadline, deadline > Date() else {
+            log.error("Ignoring unsolicited Garmin device-selection response")
+            return
+        }
+        deviceSelectionDeadline = nil
+
         guard let parsed = ConnectIQ.sharedInstance().parseDeviceSelectionResponse(from: url) as? [IQDevice] else {
             return
         }

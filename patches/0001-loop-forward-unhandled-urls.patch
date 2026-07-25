@@ -1,19 +1,41 @@
 diff --git a/Loop/Managers/DeeplinkManager.swift b/Loop/Managers/DeeplinkManager.swift
-index 86b17f625..22736ef6a 100644
+index 86b17f625..baa0c29ba 100644
 --- a/Loop/Managers/DeeplinkManager.swift
 +++ b/Loop/Managers/DeeplinkManager.swift
-@@ -33,9 +33,12 @@ class DeeplinkManager {
+@@ -27,12 +27,19 @@ class DeeplinkManager {
+     
+     private weak var rootViewController: UIViewController?
+     
++    private let log = DiagnosticLog(category: "DeeplinkManager")
++    
+     init(rootViewController: UIViewController?) {
+         self.rootViewController = rootViewController
+     }
      
      func handle(_ url: URL) -> Bool {
          guard let rootViewController = rootViewController as? RootNavigationController, let deeplink = Deeplink(url: url) else {
--            return false
 +            // Forward URLs Loop doesn't handle itself to interested plugins
-+            // (e.g. the Garmin Connect device-selection response).
-+            NotificationCenter.default.post(name: Notification.Name("org.loopkit.Loop.didReceiveURL"), object: url)
-+            return true
++            // (e.g. the Garmin Connect device-selection response). Plugins are
++            // expected to validate that a URL is one they actually requested.
++            log.default("Forwarding unhandled URL with host %{public}@", url.host ?? "(none)")
++            NotificationCenter.default.post(name: .didReceiveURL, object: self, userInfo: [DeeplinkManager.urlUserInfoKey: url])
+             return false
          }
--        
-+
-         rootViewController.navigate(to: deeplink)
+         
+@@ -49,3 +56,16 @@ class DeeplinkManager {
          return true
      }
+ }
++
++extension DeeplinkManager {
++    /// The `userInfo` key carrying the `URL` on `Notification.Name.didReceiveURL`.
++    static let urlUserInfoKey = "url"
++}
++
++extension Notification.Name {
++    /// Posted when Loop receives a URL it does not handle itself, so that plugins
++    /// can claim their own callbacks. The URL is in `userInfo` under
++    /// `DeeplinkManager.urlUserInfoKey`. Observers must not assume the URL came
++    /// from a trusted sender: any app on the device can open Loop's URL scheme.
++    static let didReceiveURL = Notification.Name("org.loopkit.Loop.didReceiveURL")
++}
