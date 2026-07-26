@@ -174,6 +174,21 @@ automatically.
 
 ## Troubleshooting
 
+**Datafield shows old values or a red screen, and never updates — check Auto Pause first**
+
+This is the most common cause, and it looks exactly like the plugin being broken.
+A Connect IQ datafield only updates while the activity timer is *running*. If your
+device auto-pauses — which it will within seconds when you start an activity
+indoors and don't move — the datafield stops updating and keeps displaying
+whatever it last had, usually flagged stale. Loop reports the data as sent, because
+it was: the phone delivered the message, and it cannot tell whether the datafield
+ran and redrew.
+
+Turn off **Auto Pause** for the activity profile you are testing with (on Edge
+devices: Activity Profiles → your profile → Timer → Auto Pause → Off), or use an
+indoor/trainer profile, or move the device. With the timer genuinely running,
+"Resend Latest Data" updates the display immediately.
+
 **Device shows "Not Connected" or displays "—"**
 - Open **Garmin Connect Mobile** and confirm Bluetooth is connected to your Garmin device.
 - Restart Bluetooth on both ends if pairing seems stale.
