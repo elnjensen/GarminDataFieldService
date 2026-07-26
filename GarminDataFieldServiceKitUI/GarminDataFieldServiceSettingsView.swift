@@ -150,8 +150,11 @@ struct GarminDataFieldServiceSettingsView: View {
             devicesSection
             watchAppSection
             displaySection
-            testSection
+            // Loop does not register the service - and so never delivers any
+            // data to it - until creation completes, so there is nothing to
+            // resend while still setting up.
             if !viewModel.isCreating {
+                testSection
                 deleteSection
             }
         }
