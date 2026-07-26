@@ -13,6 +13,20 @@ import ConnectIQ
 import LoopKitUI
 import GarminDataFieldServiceKit
 
+/// A device row including its status text.
+///
+/// The status must live in the diffed data: rendering it by calling a method
+/// that reads session state SwiftUI cannot see means an unchanged
+/// `GarminDeviceDescriptor` lets SwiftUI skip re-rendering the row, and the
+/// status then stays stale until the view is rebuilt.
+struct GarminDeviceRow: Identifiable, Equatable {
+    let id: UUID
+    let title: String
+    let subtitle: String?
+    let statusText: String
+    let isConnected: Bool
+}
+
 class GarminDataFieldServiceViewModel: ObservableObject {
     let service: GarminDataFieldService
     let isCreating: Bool
@@ -23,6 +37,7 @@ class GarminDataFieldServiceViewModel: ObservableObject {
     @Published var primaryAttribute: GarminPrimaryAttribute
     @Published var secondaryAttribute: GarminSecondaryAttribute
     @Published var devices: [GarminDeviceDescriptor]
+    @Published var deviceRows: [GarminDeviceRow] = []
     @Published var showingGarminConnectAlert = false
     @Published var sendStatus: GarminSendStatus?
     @Published var lastSuccessfulSend: Date?
@@ -43,6 +58,8 @@ class GarminDataFieldServiceViewModel: ObservableObject {
         self.sendStatus = service.session.manualSendStatus
         self.lastSuccessfulSend = service.session.lastSuccessfulSend
 
+        rebuildDeviceRows()
+
         observers.append(NotificationCenter.default.addObserver(
             forName: GarminDataFieldService.sendStatusDidChangeNotification,
             object: service,
@@ -60,6 +77,7 @@ class GarminDataFieldServiceViewModel: ObservableObject {
         ) { [weak self] _ in
             guard let self = self else { return }
             self.devices = self.service.devices
+            self.rebuildDeviceRows()
         })
 
         observers.append(NotificationCenter.default.addObserver(
@@ -84,6 +102,20 @@ class GarminDataFieldServiceViewModel: ObservableObject {
             return customAppUUID != nil
         }
         return true
+    }
+
+    private func rebuildDeviceRows() {
+        deviceRows = devices.map { device in
+            let title = device.friendlyName.isEmpty ? device.modelName : device.friendlyName
+            let subtitle = (!device.modelName.isEmpty && !device.friendlyName.isEmpty) ? device.modelName : nil
+            return GarminDeviceRow(
+                id: device.uuid,
+                title: title,
+                subtitle: subtitle,
+                statusText: statusDescription(for: device),
+                isConnected: isConnected(device)
+            )
+        }
     }
 
     func statusDescription(for device: GarminDeviceDescriptor) -> String {
@@ -134,6 +166,7 @@ class GarminDataFieldServiceViewModel: ObservableObject {
             service.removeDevice(withUUID: devices[index].uuid)
         }
         devices = service.devices
+        rebuildDeviceRows()
         service.completeUpdate()
     }
 
@@ -211,20 +244,20 @@ struct GarminDataFieldServiceSettingsView: View {
             header: Text("Devices", comment: "Section header for the Garmin device list"),
             footer: Text("Devices are managed through the Garmin Connect app. Tapping the button opens Garmin Connect, where you confirm which devices to share with Loop.", comment: "Section footer for the Garmin device list")
         ) {
-            ForEach(viewModel.devices, id: \.uuid) { device in
+            ForEach(viewModel.deviceRows) { row in
                 HStack {
                     VStack(alignment: .leading) {
-                        Text(device.friendlyName.isEmpty ? device.modelName : device.friendlyName)
-                        if !device.modelName.isEmpty && !device.friendlyName.isEmpty {
-                            Text(device.modelName)
+                        Text(row.title)
+                        if let subtitle = row.subtitle {
+                            Text(subtitle)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     }
                     Spacer()
-                    Text(viewModel.statusDescription(for: device))
+                    Text(row.statusText)
                         .font(.caption)
-                        .foregroundColor(viewModel.isConnected(device) ? .green : .secondary)
+                        .foregroundColor(row.isConnected ? .green : .secondary)
                 }
             }
             .onDelete { offsets in
