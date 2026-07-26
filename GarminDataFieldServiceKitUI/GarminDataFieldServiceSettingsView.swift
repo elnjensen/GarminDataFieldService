@@ -114,6 +114,12 @@ class GarminDataFieldServiceViewModel: ObservableObject {
         service.session.showDeviceSelection()
     }
 
+    /// Device status arrives by push, which can be stale or absent when this
+    /// screen opens, so pull once on appearance instead of polling.
+    func refreshDeviceStatuses() {
+        service.session.refreshDeviceStatuses()
+    }
+
     /// Applies immediately (rather than waiting for Done): this is the
     /// before-and-after-a-ride switch, so it should take effect on the spot.
     func setEnabled(_ enabled: Bool) {
@@ -175,6 +181,9 @@ struct GarminDataFieldServiceSettingsView: View {
         .insetGroupedListStyle()
         .navigationBarTitle(Text("Garmin Datafield"), displayMode: .large)
         .navigationBarItems(trailing: doneButton)
+        .onAppear {
+            viewModel.refreshDeviceStatuses()
+        }
         .alert(isPresented: $viewModel.showingGarminConnectAlert) {
             Alert(
                 title: Text("Garmin Connect Required", comment: "Alert title when Garmin Connect Mobile is not installed"),

@@ -254,6 +254,38 @@ public final class GarminDeviceSession: NSObject {
                 ConnectIQ.sharedInstance().register(forAppMessages: app, delegate: self)
             }
         }
+
+        // `deviceStatusChanged` only fires on a *change*, so without seeding
+        // there is no status at all until the SDK happens to report one - which
+        // showed in the UI as "Unknown" for the first seconds after pairing, and
+        // indefinitely for a device that was already connected at registration.
+        refreshDeviceStatuses()
+    }
+
+    /// Pulls the current status of every registered device. Cheap and one-shot:
+    /// call it after registering and when the settings screen appears, rather
+    /// than polling.
+    public func refreshDeviceStatuses() {
+        dispatchPrecondition(condition: .onQueue(.main))
+
+        var changed = false
+        for (uuid, device) in devices {
+            let status = ConnectIQ.sharedInstance().getDeviceStatus(device)
+
+            // A freshly registered device can briefly report invalidDevice;
+            // showing that would be worse than showing nothing, and a genuinely
+            // invalid device still arrives via `deviceStatusChanged`.
+            guard status != .invalidDevice else { continue }
+
+            if deviceStatuses[uuid] != status {
+                deviceStatuses[uuid] = status
+                changed = true
+            }
+        }
+
+        if changed {
+            delegate?.sessionDeviceStatusDidChange(self)
+        }
     }
 
     public func status(for deviceUUID: UUID) -> IQDeviceStatus? {
