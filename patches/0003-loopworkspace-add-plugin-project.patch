@@ -1,5 +1,5 @@
 diff --git a/LoopWorkspace.xcworkspace/contents.xcworkspacedata b/LoopWorkspace.xcworkspace/contents.xcworkspacedata
-index 259c3bc..9465ec0 100644
+index fed13e7..1d5ff01 100644
 --- a/LoopWorkspace.xcworkspace/contents.xcworkspacedata
 +++ b/LoopWorkspace.xcworkspace/contents.xcworkspacedata
 @@ -105,6 +105,9 @@
@@ -13,7 +13,7 @@ index 259c3bc..9465ec0 100644
        location = "group:TrueTime.swift/TrueTime.xcodeproj">
     </FileRef>
 diff --git a/LoopWorkspace.xcworkspace/xcshareddata/xcschemes/LoopWorkspace.xcscheme b/LoopWorkspace.xcworkspace/xcshareddata/xcschemes/LoopWorkspace.xcscheme
-index 55d86ac..fb43b82 100644
+index 19f95ce..1a5b039 100644
 --- a/LoopWorkspace.xcworkspace/xcshareddata/xcschemes/LoopWorkspace.xcscheme
 +++ b/LoopWorkspace.xcworkspace/xcshareddata/xcschemes/LoopWorkspace.xcscheme
 @@ -132,6 +132,20 @@
