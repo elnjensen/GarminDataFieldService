@@ -24,6 +24,8 @@ class GarminDataFieldServiceViewModel: ObservableObject {
     @Published var secondaryAttribute: GarminSecondaryAttribute
     @Published var devices: [GarminDeviceDescriptor]
     @Published var showingGarminConnectAlert = false
+    @Published var sendStatus: GarminSendStatus?
+    @Published var lastSuccessfulSend: Date?
 
     var onCompletion: (() -> Void)?
 
@@ -38,6 +40,18 @@ class GarminDataFieldServiceViewModel: ObservableObject {
         self.primaryAttribute = service.primaryAttribute
         self.secondaryAttribute = service.secondaryAttribute
         self.devices = service.devices
+        self.sendStatus = service.session.manualSendStatus
+        self.lastSuccessfulSend = service.session.lastSuccessfulSend
+
+        observers.append(NotificationCenter.default.addObserver(
+            forName: GarminDataFieldService.sendStatusDidChangeNotification,
+            object: service,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            self.sendStatus = self.service.session.manualSendStatus
+            self.lastSuccessfulSend = self.service.session.lastSuccessfulSend
+        })
 
         observers.append(NotificationCenter.default.addObserver(
             forName: GarminDataFieldService.devicesDidChangeNotification,
@@ -256,11 +270,82 @@ struct GarminDataFieldServiceSettingsView: View {
     private var testSection: some View {
         Section(footer: Text("Sends the most recent data to the Garmin device again. Data flows automatically with every loop cycle (about every 5 minutes).", comment: "Section footer for the resend button")) {
             Button(action: { viewModel.resendData() }) {
-                Text("Resend Latest Data", comment: "Button title to resend the latest data to the Garmin device")
+                HStack {
+                    Text("Resend Latest Data", comment: "Button title to resend the latest data to the Garmin device")
+                    if viewModel.sendStatus == .sending {
+                        Spacer()
+                        ProgressView()
+                    }
+                }
             }
-            .disabled(!viewModel.isEnabled)
+            .disabled(!viewModel.isEnabled || viewModel.sendStatus == .sending)
+
+            if let message = sendStatusMessage {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundColor(sendStatusIsError ? .red : .secondary)
+            }
         }
     }
+
+    /// Describes the last resend attempt, falling back to when data last
+    /// reached the device so the row is informative before the button is used.
+    private var sendStatusMessage: String? {
+        switch viewModel.sendStatus {
+        case .sending:
+            return LocalizedString("Sending…", comment: "Send status while a resend is in flight")
+        case .sent(let date):
+            return String(
+                format: LocalizedString("Sent at %@", comment: "Send status after a successful resend (1: time)"),
+                Self.timeFormatter.string(from: date)
+            )
+        case .noData:
+            return LocalizedString("No data to send yet. Loop supplies data on its next cycle.", comment: "Send status when no loop data has arrived")
+        case .noDevice:
+            return LocalizedString("No Garmin device selected.", comment: "Send status when no device is paired")
+        case .deviceNotReady(let name):
+            return String(
+                format: LocalizedString("%@ is not connected yet. Open Garmin Connect and check Bluetooth.", comment: "Send status when the device is not ready (1: device name)"),
+                name.isEmpty ? LocalizedString("The device", comment: "Fallback device name") : name
+            )
+        case .appNotInstalled(let name):
+            return String(
+                format: LocalizedString("The datafield is not installed on %@.", comment: "Send status when the Connect IQ app is missing (1: device name)"),
+                name.isEmpty ? LocalizedString("the device", comment: "Fallback device name, mid-sentence") : name
+            )
+        case .unchanged:
+            return LocalizedString("Data unchanged since the last send.", comment: "Send status when the payload was identical")
+        case .failed(let reason):
+            return String(
+                format: LocalizedString("Send failed: %@", comment: "Send status after a failed send (1: reason)"),
+                reason
+            )
+        case .timedOut:
+            return LocalizedString("The device did not respond. Check that it is connected in Garmin Connect.", comment: "Send status when the send timed out")
+        case nil:
+            guard let last = viewModel.lastSuccessfulSend else { return nil }
+            return String(
+                format: LocalizedString("Last sent at %@", comment: "Send status showing the last automatic send (1: time)"),
+                Self.timeFormatter.string(from: last)
+            )
+        }
+    }
+
+    private var sendStatusIsError: Bool {
+        switch viewModel.sendStatus {
+        case .failed, .deviceNotReady, .appNotInstalled, .noDevice, .timedOut:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter
+    }()
 
     private var deleteSection: some View {
         Section {

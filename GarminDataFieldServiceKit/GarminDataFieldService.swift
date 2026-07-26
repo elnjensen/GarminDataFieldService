@@ -209,20 +209,23 @@ public final class GarminDataFieldService: Service {
         DispatchQueue.main.async {
             self.session.invalidateLastSentPayload()
         }
-        sendWatchStateFromCaches()
+        sendWatchStateFromCaches(manual: true)
     }
 
     /// Assembles the current watch state from the caches and hands it to the
     /// session. Safe to call from any queue. No-op while the service is
     /// switched off.
-    public func sendWatchStateFromCaches() {
+    ///
+    /// A `manual` send skips the debounce and reports its outcome through the
+    /// session's `manualSendStatus`, including the empty-payload case - hence no
+    /// early return here on empty states.
+    public func sendWatchStateFromCaches(manual: Bool = false) {
         guard isEnabled else { return }
         stateQueue.async {
             let inputs = self.makeInputsLocked()
             DispatchQueue.main.async {
                 let states = makeGarminWatchStates(from: inputs)
-                guard !states.isEmpty else { return }
-                self.session.send(states: states)
+                self.session.send(states: states, manual: manual)
             }
         }
     }
@@ -461,11 +464,18 @@ extension GarminDataFieldService: GarminDeviceSessionDelegate {
         NotificationCenter.default.post(name: Self.needsGarminConnectMobileNotification, object: self)
     }
 
+    public func sessionDidUpdateSendStatus(_ session: GarminDeviceSession) {
+        NotificationCenter.default.post(name: Self.sendStatusDidChangeNotification, object: self)
+    }
+
     /// Posted (object: the service) when the device list or a device status changes.
     public static let devicesDidChangeNotification = Notification.Name("GarminDataFieldService.devicesDidChange")
 
     /// Posted (object: the service) when Garmin Connect Mobile is missing.
     public static let needsGarminConnectMobileNotification = Notification.Name("GarminDataFieldService.needsGarminConnectMobile")
+
+    /// Posted (object: the service) when a send starts, finishes, or fails.
+    public static let sendStatusDidChangeNotification = Notification.Name("GarminDataFieldService.sendStatusDidChange")
 }
 
 // MARK: - Trend mapping

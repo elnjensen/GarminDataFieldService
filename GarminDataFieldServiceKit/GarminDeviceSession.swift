@@ -59,6 +59,21 @@ public struct GarminDeviceDescriptor: Equatable, Codable {
     }
 }
 
+/// Result of a send attempt, reported as a reason code so the UI owns the
+/// user-facing wording. Cases carrying a `String` carry a device friendly name
+/// or an SDK result description.
+public enum GarminSendStatus: Equatable {
+    case sending
+    case sent(Date)
+    case noData
+    case noDevice
+    case deviceNotReady(String)
+    case appNotInstalled(String)
+    case unchanged
+    case failed(String)
+    case timedOut
+}
+
 public protocol GarminDeviceSessionDelegate: AnyObject {
     /// The user finished picking devices in Garmin Connect Mobile.
     func session(_ session: GarminDeviceSession, didSelectDevices devices: [GarminDeviceDescriptor])
@@ -71,6 +86,9 @@ public protocol GarminDeviceSessionDelegate: AnyObject {
 
     /// Garmin Connect Mobile is not installed on this phone.
     func sessionNeedsGarminConnectMobile(_ session: GarminDeviceSession)
+
+    /// `manualSendStatus` or `lastSuccessfulSend` changed (called on main).
+    func sessionDidUpdateSendStatus(_ session: GarminDeviceSession)
 }
 
 public final class GarminDeviceSession: NSObject {
@@ -114,6 +132,19 @@ public final class GarminDeviceSession: NSObject {
     /// app on the device can open Loop's URL scheme, so a selection response is
     /// only honored while the user has one outstanding.
     private var deviceSelectionDeadline: Date?
+
+    /// Outcome of the most recent send the user asked for by tapping the resend
+    /// button. Automatic sends do not touch this, so it stays meaningful.
+    public private(set) var manualSendStatus: GarminSendStatus?
+
+    /// When a payload was last delivered to any device, automatic or manual.
+    public private(set) var lastSuccessfulSend: Date?
+
+    /// Distinguishes successive manual sends so a stale watchdog cannot fail a
+    /// newer attempt.
+    private var manualSendGeneration = 0
+
+    private static let manualSendTimeout: TimeInterval = 30
 
     private let log = Logger(subsystem: "GarminDataFieldService", category: "GarminDeviceSession")
 
@@ -235,20 +266,79 @@ public final class GarminDeviceSession: NSObject {
 
     // MARK: - Sending
 
-    /// Queues the states for delivery to all registered watch apps, debounced
-    /// by two seconds and skipped when the payload hasn't changed.
-    public func send(states: [GarminWatchState]) {
+    /// Queues the states for delivery to all registered watch apps, skipping
+    /// sends whose payload hasn't changed.
+    ///
+    /// Automatic sends are debounced by two seconds, because Loop calls several
+    /// upload methods in quick succession each cycle and each one lands here;
+    /// without the delay one logical update would produce several Bluetooth
+    /// messages, most of them immediately superseded. A `manual` send has
+    /// nothing to coalesce with, so it goes out at once and reports its outcome
+    /// through `manualSendStatus`.
+    public func send(states: [GarminWatchState], manual: Bool = false) {
         dispatchPrecondition(condition: .onQueue(.main))
-        guard !states.isEmpty, !watchApps.isEmpty else { return }
+
+        guard !states.isEmpty else {
+            if manual { setManualStatus(.noData) }
+            return
+        }
+        guard !watchApps.isEmpty else {
+            if manual { setManualStatus(.noDevice) }
+            return
+        }
 
         lastStates = states
 
         pendingSend?.cancel()
+
+        guard !manual else {
+            manualSendGeneration += 1
+            let generation = manualSendGeneration
+            setManualStatus(.sending)
+
+            // ConnectIQ's callbacks are not guaranteed to arrive - a dropped BLE
+            // link mid-transfer can strand us - so never leave the UI showing
+            // "Sending…" (and the button disabled) indefinitely.
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.manualSendTimeout) { [weak self] in
+                guard let self = self, self.manualSendGeneration == generation,
+                      self.manualSendStatus == .sending else { return }
+                self.log.error("Manual send timed out")
+                self.setManualStatus(.timedOut)
+            }
+
+            broadcast(manual: true)
+            return
+        }
+
         let work = DispatchWorkItem { [weak self] in
-            self?.broadcast()
+            self?.broadcast(manual: false)
         }
         pendingSend = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
+    }
+
+    /// Safe to call from any queue: ConnectIQ's completion blocks are not
+    /// guaranteed to run on main, and both stored properties are read by the UI.
+    private func setManualStatus(_ status: GarminSendStatus?) {
+        onMain {
+            self.manualSendStatus = status
+            self.delegate?.sessionDidUpdateSendStatus(self)
+        }
+    }
+
+    private func noteSuccessfulSend(at date: Date) {
+        onMain {
+            self.lastSuccessfulSend = date
+            self.delegate?.sessionDidUpdateSendStatus(self)
+        }
+    }
+
+    private func onMain(_ block: @escaping () -> Void) {
+        if Thread.isMainThread {
+            block()
+        } else {
+            DispatchQueue.main.async(execute: block)
+        }
     }
 
     /// Forgets the last-sent payload so the next send goes through even when
@@ -266,52 +356,75 @@ public final class GarminDeviceSession: NSObject {
         send(states: lastStates)
     }
 
-    private func broadcast() {
-        guard !lastStates.isEmpty else { return }
+    /// When `manual`, the outcome is reported through `manualSendStatus`. With
+    /// several devices registered the last one to report wins; the log carries
+    /// the per-device detail.
+    private func broadcast(manual: Bool) {
+        guard !lastStates.isEmpty else {
+            if manual { setManualStatus(.noData) }
+            return
+        }
 
         let messageObject: Any
         do {
             messageObject = try lastStates.connectIQMessageObject()
         } catch {
             log.error("Failed to encode watch states: \(error.localizedDescription, privacy: .public)")
+            if manual { setManualStatus(.failed(error.localizedDescription)) }
             return
         }
 
         let currentHash = lastStates.hashValue
         if currentHash == lastSentHash {
             log.info("Skipping send - payload unchanged")
+            if manual { setManualStatus(.unchanged) }
             return
         }
 
+        var attempted = false
         for app in watchApps {
             guard let device = app.device else { continue }
+            let name = device.friendlyName ?? ""
             guard readyDevices.contains(device.uuid) else {
                 log.info("Skipping \(device.friendlyName ?? "device", privacy: .public) - device not ready")
+                if manual { setManualStatus(.deviceNotReady(name)) }
                 continue
             }
+            attempted = true
             ConnectIQ.sharedInstance().getAppStatus(app) { [weak self] status in
                 guard status?.isInstalled == true else {
                     self?.log.info("Watch app not installed on \(device.friendlyName ?? "device", privacy: .public)")
+                    if manual { self?.setManualStatus(.appNotInstalled(name)) }
                     return
                 }
-                self?.sendMessage(messageObject, to: app)
+                self?.sendMessage(messageObject, to: app, manual: manual)
             }
+        }
+
+        // Nothing was attempted and no per-device reason was recorded (e.g. an
+        // app with no device), so nothing will ever report back.
+        if manual && !attempted && manualSendStatus == .sending {
+            setManualStatus(.noDevice)
         }
 
         lastSentHash = currentHash
     }
 
-    private func sendMessage(_ message: Any, to app: IQApp, isRetry: Bool = false) {
+    private func sendMessage(_ message: Any, to app: IQApp, manual: Bool, isRetry: Bool = false) {
         ConnectIQ.sharedInstance().sendMessage(message, to: app, progress: nil) { [weak self] result in
             guard let self = self else { return }
             if result == .success {
                 self.log.info("Sent watch state to \(app.device?.friendlyName ?? "device", privacy: .public)")
+                let now = Date()
+                self.noteSuccessfulSend(at: now)
+                if manual { self.setManualStatus(.sent(now)) }
             } else if isRetry {
                 self.log.error("Send failed after retry: \(NSStringFromSendMessageResult(result), privacy: .public)")
+                if manual { self.setManualStatus(.failed(NSStringFromSendMessageResult(result))) }
             } else {
                 self.log.error("Send failed (\(NSStringFromSendMessageResult(result), privacy: .public)) - retrying in 2s")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    self.sendMessage(message, to: app, isRetry: true)
+                    self.sendMessage(message, to: app, manual: manual, isRetry: true)
                 }
             }
         }
