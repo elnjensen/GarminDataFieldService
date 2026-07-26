@@ -29,29 +29,81 @@ The plugin sends a Trio-format JSON message over Bluetooth (via Garmin ConnectIQ
 
 ### On Your iPhone (Phone-Side Setup)
 
-#### Easiest: build from the pre-wired LoopWorkspace fork
+A pre-wired LoopWorkspace fork is available on branch `garmin`. It carries this
+plugin as a submodule, the workspace and shared-scheme wiring, and the two small
+Loop patches in `patches/`.
 
-A LoopWorkspace fork with everything integrated is available (branch `garmin`):
+#### Option A: browser build (no Mac required)
+
+This is the recommended route, and the one the patches are applied
+automatically for.
+
+If you have never built Loop this way, follow the standard
+[LoopDocs browser build](https://loopkit.github.io/loopdocs/gh-actions/gh-overview/)
+setup first — you need a GitHub account, an Apple Developer Program membership,
+and the one-time secrets/certificates steps. Then bring the `garmin` branch into
+your own fork.
+
+**Note:** GitHub allows only one fork per repository per account, so if you
+already have a LoopWorkspace fork you cannot also fork this one. Bring the
+branch into the fork you already have instead. Entirely in the browser:
+
+1. In your fork, create a new branch named `garmin` (Branches → New branch).
+2. Visit
+   `https://github.com/YOUR-USERNAME/LoopWorkspace/compare/garmin...elnjensen:garmin`
+3. Create the pull request and merge it.
+
+Or from a terminal, without checking anything out:
+
+```bash
+git remote add garmin-src https://github.com/elnjensen/LoopWorkspace.git
+git fetch garmin-src garmin
+git push origin garmin-src/garmin:refs/heads/garmin
+```
+
+Then run the **4. Build Loop Manual** action with the `garmin` branch selected.
+The workflow applies everything in `patches/` for you. The plugin adds no new
+app identifiers, so if you have built Loop before there is nothing to
+re-register.
+
+#### Option B: local Xcode build
 
 ```bash
 git clone --branch=garmin --recurse-submodules https://github.com/elnjensen/LoopWorkspace
 cd LoopWorkspace
-xed .   # open in Xcode, set your team, build to your phone
+git apply patches/*.patch --whitespace=fix
+xed .   # set your development team, then build to your phone
 ```
 
-The fork carries this plugin as a submodule inside the workspace, the
-workspace/scheme wiring, and the two small Loop patches in
-`LoopWorkspace/patches/` (applied automatically by the GitHub Actions
-"browser build"; for local Xcode builds apply them once with
-`git apply patches/garmin_*.patch` from the LoopWorkspace folder).
+**Do not skip the `git apply` step.** Xcode does not apply `patches/` — only the
+GitHub Actions workflow does. Without it Loop still compiles and runs, but
+selecting a Garmin device will silently fail: Garmin Connect Mobile opens, and
+on return to Loop nothing happens, with no error message. The command prints a
+few `trailing whitespace` warnings on success; only treat it as failed if you
+see `error:`.
 
-#### Manual: integrate into your own LoopWorkspace
+To confirm it worked before building:
 
-1. Clone this repo **inside** your LoopWorkspace folder:
+```bash
+git -C Loop status --short   # expect Loop/Info.plist and Loop/Managers/DeeplinkManager.swift
+```
+
+Those two modified files are a permanent local state and should never be
+committed. When you later update the branch, reset and re-apply rather than
+merging on top of applied patches:
+
+```bash
+git -C Loop checkout -- . && git pull && git submodule update --init --recursive
+git apply patches/*.patch --whitespace=fix
+```
+
+#### Option C: integrate into your own LoopWorkspace
+
+1. Add this repo as a submodule **inside** your LoopWorkspace folder:
 
    ```bash
    cd LoopWorkspace
-   git clone https://github.com/elnjensen/GarminDataFieldService
+   git submodule add https://github.com/elnjensen/GarminDataFieldService.git GarminDataFieldService
    ```
 
 2. Apply the two Loop patches (they add ~5 lines forwarding unhandled URLs as
@@ -72,6 +124,21 @@ workspace/scheme wiring, and the two small Loop patches in
    git apply GarminDataFieldService/patches/0003-loopworkspace-add-plugin-project.patch
    ```
 
+   This patch tracks a moving upstream, so on a newer LoopWorkspace it may fail
+   with `patch does not apply`. If so, make the two edits by hand — they are
+   small. In `LoopWorkspace.xcworkspace/contents.xcworkspacedata` add a
+   `FileRef` whose location is
+   `group:GarminDataFieldService/GarminDataFieldService.xcodeproj`, and in
+   `LoopWorkspace.xcworkspace/xcshareddata/xcschemes/LoopWorkspace.xcscheme` copy
+   an existing plugin's `BuildActionEntry`, changing the buildable name to
+   `GarminDataFieldServiceKitPlugin.loopplugin`, the blueprint name to
+   `GarminDataFieldServiceKitPlugin`, the referenced container to the path above,
+   and the `BlueprintIdentifier` to the `GarminDataFieldServiceKitPlugin`
+   `PBXNativeTarget` UUID from
+   `GarminDataFieldService/GarminDataFieldService.xcodeproj/project.pbxproj`.
+   The entry must come **before** the Loop app target, since Loop's build copies
+   the already-built plugin.
+
 No changes to the Loop target itself are needed: Loop's existing
 `copy-plugins.sh` build phase discovers the built `.loopplugin` bundle and
 copies it (and its embedded frameworks, including ConnectIQ) into the app
@@ -86,9 +153,8 @@ gem install xcodeproj
 ruby Scripts/generate_project.rb
 ```
 
-#### Step 4: Build Loop
-
-Build and run Loop on your iPhone as usual. The plugin will be included automatically.
+Then build and run Loop on your iPhone as usual. The plugin will be included
+automatically.
 
 ## Setup in Loop
 
@@ -99,8 +165,12 @@ Build and run Loop on your iPhone as usual. The plugin will be included automati
    - Value 1: COB or ISF (Insulin Sensitivity Factor)
    - Value 2: Basal rate or Eventual BG
    (Glucose with trend arrow and IOB are always shown.)
-5. **Resend Latest Data:** Tap to test—sends the most recent loop data to your Garmin device immediately.
-6. **Send Data to Garmin** (toggle at the top): unlike always-on uploaders such as Nightscout, you probably only want this service active during a ride or run. Turn it off between activities to silence all Garmin communication; Loop keeps collecting data in the background, so turning it back on updates the device right away. The switch takes effect immediately (no need to tap Done).
+5. Tap **Add Service** to finish. Loop only starts feeding data to the service at
+   this point, so data will not reach your Garmin device until you do this.
+6. **Resend Latest Data:** re-open the service settings and tap this to send the
+   most recent loop data immediately. This action only appears after the service
+   has been added, for the reason above.
+7. **Send Data to Garmin** (toggle at the top): unlike always-on uploaders such as Nightscout, you probably only want this service active during a ride or run. Turn it off between activities to silence all Garmin communication; Loop keeps collecting data in the background, so turning it back on updates the device right away. The switch takes effect immediately (no need to tap Done).
 
 ## Troubleshooting
 
@@ -109,7 +179,11 @@ Build and run Loop on your iPhone as usual. The plugin will be included automati
 - Restart Bluetooth on both ends if pairing seems stale.
 
 **Datafield shows stale data or no data**
-- Data flows on ~5-minute loop cycles. Allow one full cycle after setup for the first data to appear.
+- Confirm you finished setup by tapping **Add Service**. Loop delivers no data to
+  the service until then, and "Resend Latest Data" cannot help.
+- After the service is added Loop backfills recent data right away, but a newly
+  paired device is not sendable until Bluetooth characteristic discovery
+  finishes, so allow a few seconds. After that, data flows on ~5-minute loop cycles.
 - Confirm the Trio Datafield is installed on your Garmin device and selected on a data screen.
 - Verify in Loop settings that the Connect IQ app UUID matches what you installed (default is Trio Datafield).
 - Check that Loop is running and completing dosing cycles normally (check the Loop log).
