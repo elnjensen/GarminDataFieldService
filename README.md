@@ -6,9 +6,9 @@ A Loop service plugin that sends real-time glucose, insulin-on-board (IOB), carb
 
 ## How It Works
 
-GarminDataFieldService implements Loop's `RemoteDataService` protocol to push loop data to Garmin devices. Unlike earlier Garmin integrations, it sends data via **dosing-decision uploads**, which fire automatically every loop cycle (~5 minutes) and are **not gated by the CGM "Upload Readings" toggle**. This ensures consistent, frequent device updates even if you disable glucose uploads to other services.
+GarminDataFieldService implements Loop's `RemoteDataService` protocol to push loop data to Garmin devices. It sends data via **dosing-decision uploads**, which fire automatically every loop cycle (~5 minutes). This ensures consistent, frequent device updates even if you disable glucose uploads to other services.
 
-When the "Upload Readings" toggle is enabled, the plugin opportunistically processes glucose uploads for faster updates and trend arrows, but this is optional—the dosing decision alone provides all necessary data.
+When the "Upload Readings" toggle is enabled, the plugin opportunistically processes glucose uploads for faster updates and trend arrows, but this is optional – the dosing decision alone provides all necessary data.
 
 The plugin sends a Trio-format JSON message over Bluetooth (via Garmin ConnectIQ SDK 1.8 and Garmin Connect Mobile), making it compatible with the **published Trio Datafield** and **SwissAlpine datafields** available in the Garmin Connect IQ store. The datafield works entirely offline; no internet connection is required.
 
@@ -35,33 +35,22 @@ Loop patches in `patches/`.
 
 #### Option A: browser build (no Mac required)
 
-This is the recommended route, and the one the patches are applied
-automatically for.
-
 If you have never built Loop this way, follow the standard
 [LoopDocs browser build](https://loopkit.github.io/loopdocs/gh-actions/gh-overview/)
 setup first — you need a GitHub account, an Apple Developer Program membership,
 and the one-time secrets/certificates steps. Then bring the `garmin` branch into
-your own fork.
+your own fork as outlined below.
 
 **Note:** GitHub allows only one fork per repository per account, so if you
 already have a LoopWorkspace fork you cannot also fork this one. Bring the
 branch into the fork you already have instead. Entirely in the browser:
 
-1. In your fork, create a new branch named `garmin` (Branches → New branch).
-2. Visit
-   `https://github.com/YOUR-USERNAME/LoopWorkspace/compare/garmin...elnjensen:garmin`
-3. Create the pull request and merge it.
+1. In your fork, create a new branch named `garmin`: Click the dropdown at upper left showing the current branch, and choose "View all branches."  Then click the green "New branch" button at upper right.  Name the branch `garmin` and choose `dev` as the source. 
+2. Edit this URL:
+   `https://github.com/YOUR-USERNAME/LoopWorkspace/compare/garmin...elnjensen:garmin` and replace `YOUR-USERNAME` with your GitHub username.  Enter that URL in a browser to create a pull request to pull the changes from the `elnjensen` garmin branch into your own. 
+3. Click the green "Create pull request" button to create the pull request and merge it into your branch. 
 
-Or from a terminal, without checking anything out:
-
-```bash
-git remote add garmin-src https://github.com/elnjensen/LoopWorkspace.git
-git fetch garmin-src garmin
-git push origin garmin-src/garmin:refs/heads/garmin
-```
-
-Then run the **4. Build Loop Manual** action with the `garmin` branch selected.
+Then run the **4. Build Loop** action with the `garmin` branch selected.
 The workflow applies everything in `patches/` for you. The plugin adds no new
 app identifiers, so if you have built Loop before there is nothing to
 re-register.
@@ -82,22 +71,8 @@ on return to Loop nothing happens, with no error message. The command prints a
 few `trailing whitespace` warnings on success; only treat it as failed if you
 see `error:`.
 
-To confirm it worked before building:
-
-```bash
-git -C Loop status --short   # expect Loop/Info.plist and Loop/Managers/DeeplinkManager.swift
-```
-
-Those two modified files are a permanent local state and should never be
-committed. When you later update the branch, reset and re-apply rather than
-merging on top of applied patches:
-
-```bash
-git -C Loop checkout -- . && git pull && git submodule update --init --recursive
-git apply patches/*.patch --whitespace=fix
-```
-
-#### Option C: integrate into your own LoopWorkspace
+<!--
+#### Option C: integrate into your own LoopWorkspace (most complicated, use with caution)
 
 1. Add this repo as a submodule **inside** your LoopWorkspace folder:
 
@@ -155,6 +130,8 @@ ruby Scripts/generate_project.rb
 
 Then build and run Loop on your iPhone as usual. The plugin will be included
 automatically.
+
+-->
 
 ## Setup in Loop
 
@@ -223,7 +200,7 @@ Historical glucose is included for graphing on compatible Connect IQ apps.
 ## Credits
 
 - **[Trio Project](https://github.com/nightscout/Trio)** (MIT): the Garmin message format and device-readiness/send logic are ported or adapted from Trio's Garmin support, and the published Trio Datafield and SwissAlpine Connect IQ apps this plugin drives come from the Trio community (datafield by Pierre, watchfaces by Ivan Valkou and the SwissAlpine/AAPS authors).
-- **[janvv/GarminService](https://github.com/janvv/GarminService)** (BSD 2-Clause): the original Loop-Garmin plugin that proved the approach; this project reuses its plugin structure and its service icon (the bike-handlebars illustration).
+- **[janvv/GarminService](https://github.com/janvv/GarminService)** (BSD 2-Clause): the original Loop-Garmin plugin that inspired me to create this, and showed this approach can work; this project reuses its plugin structure and a version of its service icon (the bike-handlebars illustration).
 - **[NightscoutService](https://github.com/LoopKit/NightscoutService)** / Tidepool Project (BSD 2-Clause): the canonical Loop service-plugin template this project's targets and HKUnit extension are taken from.
 - **Garmin Connect IQ Companion App SDK for iOS** (v1.8.0): Garmin's official SDK for phone-to-device communication.
 
