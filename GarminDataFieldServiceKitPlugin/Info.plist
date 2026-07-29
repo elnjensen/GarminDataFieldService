@@ -19,7 +19,7 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>com.loopkit.Loop.ServiceDisplayName</key>
-	<string>Garmin Datafield</string>
+	<string>Garmin Service</string>
 	<key>com.loopkit.Loop.ServiceIdentifier</key>
 	<string>GarminDataFieldService</string>
 </dict>

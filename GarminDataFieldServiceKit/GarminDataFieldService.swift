@@ -25,7 +25,7 @@ public final class GarminDataFieldService: Service {
 
     public static let pluginIdentifier = "GarminDataFieldService"
 
-    public static let localizedTitle = LocalizedString("Garmin Datafield", comment: "The title of the Garmin datafield service")
+    public static let localizedTitle = LocalizedString("Garmin Service", comment: "The title of the Garmin service")
 
     public weak var serviceDelegate: ServiceDelegate?
 

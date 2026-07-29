@@ -212,7 +212,7 @@ struct GarminDataFieldServiceSettingsView: View {
             }
         }
         .insetGroupedListStyle()
-        .navigationBarTitle(Text("Garmin Datafield"), displayMode: .large)
+        .navigationBarTitle(Text("Garmin Service"), displayMode: .large)
         .navigationBarItems(trailing: doneButton)
         .onAppear {
             viewModel.refreshDeviceStatuses()
