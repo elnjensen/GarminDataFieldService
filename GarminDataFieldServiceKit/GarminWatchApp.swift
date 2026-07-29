@@ -9,13 +9,21 @@ import Foundation
 
 /// The Connect IQ app (on a Garmin watch or bike computer) the service sends data to.
 ///
-/// The Trio and SwissAlpine datafields are published in the Connect IQ store and
-/// consume the `GarminWatchState` message format. `custom` lets a user target
-/// their own (e.g. self-built) Connect IQ app speaking the same format.
+/// The Trio and SwissAlpine datafields and watch faces are published in the
+/// Connect IQ store and all consume the same `GarminWatchState` message format -
+/// the phone-side send path is identical, only the target UUID differs. `custom`
+/// lets a user target their own (e.g. self-built) Connect IQ app speaking the
+/// same format.
+///
+/// Datafields only run while an activity is recording; watch faces run whenever
+/// they are displayed, so they need no activity. The watch face options are
+/// carried over from Trio's published UUIDs and are UNTESTED here.
 public enum GarminWatchAppChoice: String, CaseIterable, Codable {
     case trioDatafield
     case swissAlpineDatafield
     case loopGraphDatafield
+    case trioWatchface
+    case swissAlpineWatchface
     case custom
 
     /// The Connect IQ application UUID (as declared in the watch app's manifest),
@@ -30,6 +38,10 @@ public enum GarminWatchAppChoice: String, CaseIterable, Codable {
             // Self-built graph datafield (see the LoopGraphDatafield project);
             // sideloaded, not in the Connect IQ store.
             return UUID(uuidString: "2e18aaa2-2b57-47d3-8ace-f9cd27c0d765")
+        case .trioWatchface:
+            return UUID(uuidString: "7a121867-140e-41ba-9982-2e82e2aa6579")
+        case .swissAlpineWatchface:
+            return UUID(uuidString: "4cea4efd-4aaf-4db4-8891-ef36dde14303")
         case .custom:
             return nil
         }
@@ -43,6 +55,10 @@ public enum GarminWatchAppChoice: String, CaseIterable, Codable {
             return LocalizedString("SwissAlpine Datafield", comment: "Title of the SwissAlpine datafield Connect IQ app choice")
         case .loopGraphDatafield:
             return LocalizedString("Loop Graph Datafield", comment: "Title of the Loop Graph datafield Connect IQ app choice")
+        case .trioWatchface:
+            return LocalizedString("Trio Watch Face", comment: "Title of the Trio watch face Connect IQ app choice")
+        case .swissAlpineWatchface:
+            return LocalizedString("SwissAlpine Watch Face", comment: "Title of the SwissAlpine watch face Connect IQ app choice")
         case .custom:
             return LocalizedString("Custom App UUID", comment: "Title of the custom Connect IQ app choice")
         }

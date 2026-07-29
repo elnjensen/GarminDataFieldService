@@ -135,9 +135,18 @@ automatically.
 
 ## Setup in Loop
 
-1. Open **Loop** → **Settings** → **Services** → **Add Service** → **Garmin Datafield**.
+1. Open **Loop** → **Settings** → **Services** → **Add Service** → **Garmin Service**.
 2. Tap **Connect Garmin Devices…** to open Garmin Connect Mobile and select which devices to pair. Loop will re-open automatically with your selection.
-3. **Choose Connect IQ App:** Select the datafield to use (default: Trio Datafield; also supports SwissAlpine or a custom Connect IQ app UUID).
+3. **Choose Connect IQ App:** Select the target to send to (default: Trio Datafield;
+   also SwissAlpine, the Loop Graph datafield, the Trio and SwissAlpine **watch
+   faces**, or a custom Connect IQ app UUID).
+
+   All of these consume the same message format, so the phone side is identical
+   for every option — only the UUID differs. Note the lifecycle difference: a
+   **datafield** only updates while an activity is recording, whereas a **watch
+   face** updates whenever it is displayed, so it needs no activity. The watch
+   face UUIDs come from Trio's published values and are **untested here** — if
+   you try one, please report whether it works.
 4. **Configure Display Values:** Choose what appears in the datafield's two configurable slots:
    - Value 1: COB or ISF (Insulin Sensitivity Factor)
    - Value 2: Basal rate or Eventual BG
