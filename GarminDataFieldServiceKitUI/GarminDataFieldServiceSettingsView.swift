@@ -170,11 +170,53 @@ class GarminDataFieldServiceViewModel: ObservableObject {
         service.completeUpdate()
     }
 
+    // The pickers below apply immediately rather than on Done, matching the
+    // enabled toggle and the device list. Deferring them meant "Resend Latest
+    // Data" was still addressed to the previously selected Connect IQ app -
+    // the session registration follows the *service's* choice, not the picker's -
+    // so a user switching targets and testing from this screen would silently
+    // send to the old one.
+
+    func setWatchAppChoice(_ choice: GarminWatchAppChoice) {
+        guard choice != watchAppChoice else { return }
+        watchAppChoice = choice
+        service.watchAppChoice = choice
+        // Leave a half-typed custom UUID alone; Done writes the definitive value.
+        service.customAppUUID = choice == .custom ? customAppUUID : nil
+        service.completeUpdate()
+    }
+
+    /// Called as the custom UUID is typed. Only applied once the text parses, so
+    /// partial input doesn't re-register the session on every keystroke.
+    func customAppUUIDTextDidChange() {
+        guard watchAppChoice == .custom, let uuid = customAppUUID,
+              uuid != service.customAppUUID else { return }
+        service.customAppUUID = uuid
+        service.completeUpdate()
+    }
+
+    func setPrimaryAttribute(_ attribute: GarminPrimaryAttribute) {
+        guard attribute != primaryAttribute else { return }
+        primaryAttribute = attribute
+        service.primaryAttribute = attribute
+        service.completeUpdate()
+    }
+
+    func setSecondaryAttribute(_ attribute: GarminSecondaryAttribute) {
+        guard attribute != secondaryAttribute else { return }
+        secondaryAttribute = attribute
+        service.secondaryAttribute = attribute
+        service.completeUpdate()
+    }
+
     func resendData() {
         service.forceSendWatchState()
     }
 
     func saveAndComplete() {
+        // Redundant for the pickers, which apply on change, but keeps Done
+        // authoritative — notably for a custom UUID that never parsed cleanly
+        // while being typed.
         service.watchAppChoice = watchAppChoice
         service.customAppUUID = watchAppChoice == .custom ? customAppUUID : nil
         service.primaryAttribute = primaryAttribute
@@ -275,14 +317,23 @@ struct GarminDataFieldServiceSettingsView: View {
             header: Text("Connect IQ App", comment: "Section header for the Connect IQ app selection"),
             footer: Text("Install the selected datafield on your Garmin device from the Connect IQ store, then add it to a data screen. The Trio Datafield shows glucose with a trend arrow, insulin on board, and a configurable value.", comment: "Section footer for the Connect IQ app selection")
         ) {
-            Picker(selection: $viewModel.watchAppChoice, label: Text("Datafield", comment: "Label for the Connect IQ app picker")) {
+            Picker(selection: Binding(
+                get: { viewModel.watchAppChoice },
+                set: { viewModel.setWatchAppChoice($0) }
+            ), label: Text("Datafield", comment: "Label for the Connect IQ app picker")) {
                 ForEach(GarminWatchAppChoice.allCases, id: \.self) { choice in
                     Text(choice.localizedTitle).tag(choice)
                 }
             }
 
             if viewModel.watchAppChoice == .custom {
-                TextField(LocalizedString("Connect IQ App UUID", comment: "Placeholder for the custom app UUID field"), text: $viewModel.customAppUUIDText)
+                TextField(LocalizedString("Connect IQ App UUID", comment: "Placeholder for the custom app UUID field"), text: Binding(
+                    get: { viewModel.customAppUUIDText },
+                    set: {
+                        viewModel.customAppUUIDText = $0
+                        viewModel.customAppUUIDTextDidChange()
+                    }
+                ))
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
                     .font(.system(.caption, design: .monospaced))
@@ -295,13 +346,19 @@ struct GarminDataFieldServiceSettingsView: View {
             header: Text("Display", comment: "Section header for the display attribute choices"),
             footer: Text("Which values the datafield shows in its configurable slots.", comment: "Section footer for the display attribute choices")
         ) {
-            Picker(selection: $viewModel.primaryAttribute, label: Text("Value 1", comment: "Label for the primary attribute picker")) {
+            Picker(selection: Binding(
+                get: { viewModel.primaryAttribute },
+                set: { viewModel.setPrimaryAttribute($0) }
+            ), label: Text("Value 1", comment: "Label for the primary attribute picker")) {
                 ForEach(GarminPrimaryAttribute.allCases, id: \.self) { choice in
                     Text(choice.localizedTitle).tag(choice)
                 }
             }
 
-            Picker(selection: $viewModel.secondaryAttribute, label: Text("Value 2", comment: "Label for the secondary attribute picker")) {
+            Picker(selection: Binding(
+                get: { viewModel.secondaryAttribute },
+                set: { viewModel.setSecondaryAttribute($0) }
+            ), label: Text("Value 2", comment: "Label for the secondary attribute picker")) {
                 ForEach(GarminSecondaryAttribute.allCases, id: \.self) { choice in
                     Text(choice.localizedTitle).tag(choice)
                 }
