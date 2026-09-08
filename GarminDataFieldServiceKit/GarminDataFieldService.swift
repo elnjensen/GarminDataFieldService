@@ -219,6 +219,13 @@ public final class GarminDataFieldService: Service {
     /// A `manual` send skips the debounce and reports its outcome through the
     /// session's `manualSendStatus`, including the empty-payload case - hence no
     /// early return here on empty states.
+    ///
+    /// Ordering note: the `upload...Data` methods mutate the caches inside a
+    /// `stateQueue.async` block and then call this. That is only correct because
+    /// `stateQueue` is serial and FIFO -- this read is enqueued behind the write,
+    /// so it sees it. Preserve that relationship if the queue is ever replaced
+    /// (e.g. by main-actor isolation): losing it yields a one-cycle-stale watch
+    /// face, which will not show up as a crash or a build failure.
     public func sendWatchStateFromCaches(manual: Bool = false) {
         guard isEnabled else { return }
         stateQueue.async {

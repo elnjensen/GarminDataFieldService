@@ -467,12 +467,15 @@ public final class GarminDeviceSession: NSObject {
 
 extension GarminDeviceSession: IQDeviceEventDelegate {
     public func deviceStatusChanged(_ device: IQDevice, status: IQDeviceStatus) {
-        deviceStatuses[device.uuid] = status
-        if status != .connected {
-            readyDevices.remove(device.uuid)
-        }
         log.info("Device \(device.friendlyName ?? "?", privacy: .public) status: \(status.rawValue)")
+        // The SDK delivers this off the main thread, but `deviceStatuses` and
+        // `readyDevices` are read on main (`status(for:)`, `isReady(_:)`, and
+        // the send loop). Mutate them there too rather than racing the readers.
         DispatchQueue.main.async {
+            self.deviceStatuses[device.uuid] = status
+            if status != .connected {
+                self.readyDevices.remove(device.uuid)
+            }
             self.delegate?.sessionDeviceStatusDidChange(self)
         }
     }
@@ -480,8 +483,9 @@ extension GarminDeviceSession: IQDeviceEventDelegate {
     /// SDK 1.8+: the device is only usable once characteristics are discovered.
     public func deviceCharacteristicsDiscovered(_ device: IQDevice) {
         log.info("Device \(device.friendlyName ?? "?", privacy: .public) ready for communication")
-        readyDevices.insert(device.uuid)
+        // Mutate on main alongside the readers; see `deviceStatusChanged`.
         DispatchQueue.main.async {
+            self.readyDevices.insert(device.uuid)
             self.delegate?.sessionDeviceStatusDidChange(self)
             self.delegate?.sessionWantsDataUpdate(self)
         }
